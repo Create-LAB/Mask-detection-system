@@ -1,8 +1,6 @@
 import argparse
 import json
-
 from torch.utils.data import DataLoader
-
 from models import *
 from project.datasets import *
 from project.utils import *
@@ -28,7 +26,10 @@ def test(
 
         # Load weights
         if weights.endswith('.pt'):  # pytorch format
-            model.load_state_dict(torch.load(weights, map_location=device)['model'])
+            model.load_state_dict(
+                torch.load(
+                    weights,
+                    map_location=device)['model'])
         else:  # darknet format
             _ = load_darknet_weights(model, weights)
 
@@ -54,10 +55,12 @@ def test(
     seen = 0
     model.eval()
     coco91class = coco80_to_coco91_class()
-    print(('%20s' + '%10s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP', 'F1'))
+    print(('%20s' + '%10s' * 6) %
+          ('Class', 'Images', 'Targets', 'P', 'R', 'mAP', 'F1'))
     loss, p, r, f1, mp, mr, map, mf1 = 0., 0., 0., 0., 0., 0., 0., 0.
     jdict, stats, ap, ap_class = [], [], [], []
-    for batch_i, (imgs, targets, paths, shapes) in enumerate(tqdm(dataloader, desc='Computing mAP')):
+    for batch_i, (imgs, targets, paths, shapes) in enumerate(
+            tqdm(dataloader, desc='Computing mAP')):
         targets = targets.to(device)
         imgs = imgs.to(device)
         _, _, height, width = imgs.shape  # batch size, channels, height, width
@@ -75,7 +78,8 @@ def test(
             loss += loss_i.item()
 
         # Run NMS
-        output = non_max_suppression(inf_out, conf_thres=conf_thres, nms_thres=nms_thres)
+        output = non_max_suppression(
+            inf_out, conf_thres=conf_thres, nms_thres=nms_thres)
 
         # Statistics per image
         for si, pred in enumerate(output):
@@ -98,7 +102,8 @@ def test(
                 # [{"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}, ...
                 image_id = int(Path(paths[si]).stem.split('_')[-1])
                 box = pred[:, :4].clone()  # xyxy
-                scale_coords(imgs[si].shape[1:], box, shapes[si])  # to original shape
+                scale_coords(imgs[si].shape[1:], box,
+                             shapes[si])  # to original shape
                 box = xyxy2xywh(box)  # xywh
                 box[:, :2] -= box[:, 2:] / 2  # xy center to top-left corner
                 for di, d in enumerate(pred):
@@ -136,7 +141,8 @@ def test(
                     iou, bi = bbox_iou(pbox, tbox[m]).max(0)
 
                     # If iou > threshold and class is correct mark as correct
-                    if iou > iou_thres and m[bi] not in detected:  # and pcls == tcls[bi]:
+                    # and pcls == tcls[bi]:
+                    if iou > iou_thres and m[bi] not in detected:
                         correct[i] = 1
                         detected.append(m[bi])
 
@@ -145,7 +151,8 @@ def test(
 
     # Compute statistics
     stats = [np.concatenate(x, 0) for x in list(zip(*stats))]  # to numpy
-    nt = np.bincount(stats[3].astype(np.int64), minlength=nc)  # number of targets per class
+    nt = np.bincount(stats[3].astype(np.int64),
+                     minlength=nc)  # number of targets per class
     if len(stats):
         p, r, ap, f1, ap_class = ap_per_class(*stats)
         mp, mr, map, mf1 = p.mean(), r.mean(), ap.mean(), f1.mean()
@@ -169,7 +176,8 @@ def test(
         from pycocotools.cocoeval import COCOeval
 
         # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
-        cocoGt = COCO('../coco/annotations/instances_val2014.json')  # initialize COCO ground truth api
+        # initialize COCO ground truth api
+        cocoGt = COCO('../coco/annotations/instances_val2014.json')
         cocoDt = cocoGt.loadRes('results.json')  # initialize COCO pred api
 
         cocoEval = COCOeval(cocoGt, cocoDt, 'bbox')
@@ -188,15 +196,50 @@ def test(
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='test.py')
-    parser.add_argument('--batch-size', type=int, default=16, help='size of each image batch')
-    parser.add_argument('--cfg', type=str, default='cfg/yolov3-spp.cfg', help='cfg file path')
-    parser.add_argument('--data-cfg', type=str, default='data/coco.data', help='coco.data file path')
-    parser.add_argument('--weights', type=str, default='weights/yolov3-spp.weights', help='path to weights file')
-    parser.add_argument('--iou-thres', type=float, default=0.5, help='iou threshold required to qualify as detected')
-    parser.add_argument('--conf-thres', type=float, default=0.001, help='object confidence threshold')
-    parser.add_argument('--nms-thres', type=float, default=0.5, help='iou threshold for non-maximum suppression')
-    parser.add_argument('--save-json', action='store_true', help='save a cocoapi-compatible JSON results file')
-    parser.add_argument('--img-size', type=int, default=416, help='inference size (pixels)')
+    parser.add_argument(
+        '--batch-size',
+        type=int,
+        default=16,
+        help='size of each image batch')
+    parser.add_argument(
+        '--cfg',
+        type=str,
+        default='cfg/yolov3-spp.cfg',
+        help='cfg file path')
+    parser.add_argument(
+        '--data-cfg',
+        type=str,
+        default='data/coco.data',
+        help='coco.data file path')
+    parser.add_argument(
+        '--weights',
+        type=str,
+        default='weights/yolov3-spp.weights',
+        help='path to weights file')
+    parser.add_argument(
+        '--iou-thres',
+        type=float,
+        default=0.5,
+        help='iou threshold required to qualify as detected')
+    parser.add_argument(
+        '--conf-thres',
+        type=float,
+        default=0.001,
+        help='object confidence threshold')
+    parser.add_argument(
+        '--nms-thres',
+        type=float,
+        default=0.5,
+        help='iou threshold for non-maximum suppression')
+    parser.add_argument(
+        '--save-json',
+        action='store_true',
+        help='save a cocoapi-compatible JSON results file')
+    parser.add_argument(
+        '--img-size',
+        type=int,
+        default=416,
+        help='inference size (pixels)')
     opt = parser.parse_args()
     print(opt)
 
