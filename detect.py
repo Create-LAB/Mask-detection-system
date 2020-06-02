@@ -1,6 +1,7 @@
 import argparse
 import time
 import threading
+import face_recognition as fr
 from sys import platform
 from models import *
 from project.datasets import *
@@ -28,6 +29,7 @@ def detect(
         cfg,
         data_cfg,
         weights,
+        face_recognition,
         images='data/samples',  # input folder
         output='output',  # output folder
         fourcc='mp4v',
@@ -36,8 +38,7 @@ def detect(
         nms_thres=0.5,
         save_txt=False,
         save_images=True,
-        webcam=True
-):
+        webcam=True):
     """
     Loading the trained model to detect whether a individual is wearing a mask.
     If not,a voice alert will be given.
@@ -96,6 +97,20 @@ def detect(
         img = torch.zeros((1, 3, s[0], s[1]))
         torch.onnx.export(model, img, 'weights/export.onnx', verbose=True)
         return
+    
+    # init faces library
+    known_face_encodings = []
+    known_face_names = []
+    print('INITIALIZING FACES LIBRARY...')
+    faces_lib = os.listdir('data/faces_lib')
+    for f in faces_lib:
+        if f.endswith('.jpeg') or f.endswith('.jpg') or f.endswith('.png'):
+            current_image = fr.load_image_file(os.path.join('data/faces_lib', f))
+            current_face_encoding = fr.face_encodings(current_image)[0]
+            known_face_encodings.append(current_face_encoding)
+            known_face_names.append(f.split('.')[0])
+    print("{} known faces loaded.".format(len(faces_lib)))
+    
     # Set Dataloader
     vid_path, vid_writer = None, None
     if webcam:
@@ -111,6 +126,14 @@ def detect(
     times = 0
     for i, (path, img, im0, vid_cap) in enumerate(dataloader):
         t = time.time()
+        # covert bgr to rgb
+#         small_img = cv2.resize(im0, (0, 0), fx=0.25, fy=0.25)
+#         fr_image = small_img[:, :, ::-1]
+#         face_locations = fr.face_locations(fr_image)
+#         print(face_locations)
+        # face_encodings = fr.face_encodings(rgb_small_frame, face_locations)
+        # print(face_locations)
+        
         save_path = str(Path(output) / Path(path).name)
         # Get detections
         img = torch.from_numpy(img).unsqueeze(0).to(device)
@@ -131,8 +154,24 @@ def detect(
                     with open(save_path + '.txt', 'a') as file:
                         file.write(('%g ' * 6 + '\n') % (*xyxy, cls, conf))
                 # Add bbox to the image
-                label = '%s %.2f' % (classes[int(cls)], conf)
+                small_img = cv2.resize(im0, (0, 0), fx=0.25, fy=0.25)
+                fr_image = small_img[:, :, ::-1]
+                bbox = [int(x.item()//4) for x in xyxy]
+                # face_locations = fr.face_locations(fr_image)
+                print((bbox[0], bbox[3], bbox[2], bbox[1]))
+                face_encodings = fr.face_encodings(fr_image, [(bbox[0], bbox[3], bbox[2], bbox[1])])
+                # print(face_encoding)
+                matches = fr.compare_faces(known_face_encodings, face_encodings[0])
+                name = "Unknown Person"
+                
+                face_distances = fr.face_distance(known_face_encodings, face_encodings[0])
+                best_match_index = np.argmin(face_distances)
+                if matches[best_match_index]:
+                    name = known_face_names[best_match_index]
+                                
+                label = '%s %s  %.2f' % (name, classes[int(cls)], conf)
                 plot_one_box(xyxy, im0, label=label, color=colors[int(cls)])
+                
                 res = classes[int(cls)]
         print('Done. (%.3fs)' % (time.time() - t))
         if webcam:
@@ -208,6 +247,11 @@ if __name__ == '__main__':
         type=str,
         default='output',
         help='specifies the output path for images and videos')
+    parser.add_argument(
+        '--face_recognition',
+        type=bool,
+        default=True,
+        help='get names of faces in one image')
     opt = parser.parse_args()
     print(opt)
 
@@ -221,5 +265,6 @@ if __name__ == '__main__':
             conf_thres=opt.conf_thres,
             nms_thres=opt.nms_thres,
             fourcc=opt.fourcc,
-            output=opt.output
+            output=opt.output,
+            face_recognition=opt.face_recognition
         )
