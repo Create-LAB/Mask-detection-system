@@ -8,8 +8,6 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     package_data={
-        # 由于voice是一个包，因此无需指定包名
-        "": ["./*.wav"],
         # 而cfg并不是一个包，因此需要指定cfg包名
         "cfg": ["./*.cfg"],
     },
