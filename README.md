@@ -9,14 +9,8 @@
 
 将best.pt放入weights文件夹中，创建一个data文件夹将mask.data和mask.name放进去，配置好项目所需的环境之后，在命令行执行
 
- python detect.py --data-cfg data/mask.data --cfg cfg/yolov3-tiny-mask.cfg --weights weights/best.pt
+ python detect.py
  便可看到结果。
-
- 语音播报的声音是我自己录的，不咋好听，如果想录自己的语音提醒可以直接运行record.py，录下自己的语音
-
- 模型我使用的是yolov3-tiny，模型训练结果实际上不算特别好，计划这两天对数据进行增强，优化一下模型。
-
-
 
 --0602update: 新增人脸识别功能，只需要创建 data/faces_lib目录，放入头像图片即可
 
