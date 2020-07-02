@@ -18,17 +18,15 @@ def show(weights, im0):
     cv2.imshow(weights, im0)
 
 
-def playsound():
-    """
-    play the audio
-    """
-    song = AudioSegment.from_wav('./voice/mask_on.wav')
-    play(song)
-
-
 def sayhello(name):
     engine = pyttsx3.init()
     engine.say("hello"+name)
+    engine.runAndWait()
+
+
+def please_wear_mask():
+    engine = pyttsx3.init()
+    engine.say("please wear your mask")
     engine.runAndWait()
 
 
@@ -190,7 +188,7 @@ def detect(
         if webcam:
             show(weights, im0)
             if res == "no_mask" and (times % 50) == 0:
-                threading.Thread(target=playsound).start()
+                threading.Thread(target=please_wear_mask).start()
         if save_images:  # Save image with detections
             if dataloader.mode == 'images':
                 cv2.imwrite(save_path, im0)
@@ -218,17 +216,17 @@ if __name__ == '__main__':
     parser.add_argument(
         '--cfg',
         type=str,
-        default='cfg/yolov3-spp.cfg',
+        default='cfg/yolov3-tiny-mask.cfg',
         help='cfg file path')
     parser.add_argument(
         '--data-cfg',
         type=str,
-        default='data/coco.data',
+        default='data/mask.data',
         help='coco.data file path')
     parser.add_argument(
         '--weights',
         type=str,
-        default='weights/yolov3-spp.weights',
+        default='weights/best.pt',
         help='path to weights file')
     parser.add_argument(
         '--images',
