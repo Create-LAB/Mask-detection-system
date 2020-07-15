@@ -1,6 +1,7 @@
 import argparse
 import time
 import threading
+import pyttsx3
 import face_recognition as fr
 from sys import platform
 from models import *
@@ -17,12 +18,16 @@ def show(weights, im0):
     cv2.imshow(weights, im0)
 
 
-def playsound():
-    """
-    play the audio
-    """
-    song = AudioSegment.from_wav('./voice/mask_on.wav')
-    play(song)
+def sayhello(name):
+    engine = pyttsx3.init()
+    engine.say("hello"+name)
+    engine.runAndWait()
+
+
+def please_wear_mask():
+    engine = pyttsx3.init()
+    engine.say("please wear your mask")
+    engine.runAndWait()
 
 
 def detect(
@@ -102,13 +107,18 @@ def detect(
     known_face_encodings = []
     known_face_names = []
     print('INITIALIZING FACES LIBRARY...')
+    # 加载图片库
     faces_lib = os.listdir('data/faces_lib')
-    for f in faces_lib:
-        if f.endswith('.jpeg') or f.endswith('.jpg') or f.endswith('.png'):
-            current_image = fr.load_image_file(os.path.join('data/faces_lib', f))
-            current_face_encoding = fr.face_encodings(current_image)[0]
-            known_face_encodings.append(current_face_encoding)
-            known_face_names.append(f.split('.')[0])
+    # 遍历人物文件夹
+    for face_name in faces_lib:
+        face_dir = 'data/faces_lib/' + face_name
+        face_name_lib = os.listdir(face_dir)
+        for f in face_name_lib:
+            if f.endswith('.jpeg') or f.endswith('.jpg') or f.endswith('.png'):
+                current_image = fr.load_image_file(os.path.join(face_dir, f))
+                current_face_encoding = fr.face_encodings(current_image)[0]
+                known_face_encodings.append(current_face_encoding)
+                known_face_names.append(face_name)
     print("{} known faces loaded.".format(len(faces_lib)))
     
     # Set Dataloader
@@ -124,6 +134,7 @@ def detect(
               for _ in range(len(classes))]
     res = ""
     times = 0
+    has_detected = False
     for i, (path, img, im0, vid_cap) in enumerate(dataloader):
         t = time.time()
         # covert bgr to rgb
@@ -163,21 +174,21 @@ def detect(
                 # print(face_encoding)
                 matches = fr.compare_faces(known_face_encodings, face_encodings[0])
                 name = "Unknown Person"
-                
                 face_distances = fr.face_distance(known_face_encodings, face_encodings[0])
                 best_match_index = np.argmin(face_distances)
                 if matches[best_match_index]:
                     name = known_face_names[best_match_index]
-                                
+                if name != "Unknown Person" and has_detected == False:
+                    threading.Thread(target=sayhello(name)).start()
+                    has_detected = True
                 label = '%s %s  %.2f' % (name, classes[int(cls)], conf)
                 plot_one_box(xyxy, im0, label=label, color=colors[int(cls)])
-                
                 res = classes[int(cls)]
         print('Done. (%.3fs)' % (time.time() - t))
         if webcam:
             show(weights, im0)
             if res == "no_mask" and (times % 50) == 0:
-                threading.Thread(target=playsound).start()
+                threading.Thread(target=please_wear_mask).start()
         if save_images:  # Save image with detections
             if dataloader.mode == 'images':
                 cv2.imwrite(save_path, im0)
@@ -205,17 +216,17 @@ if __name__ == '__main__':
     parser.add_argument(
         '--cfg',
         type=str,
-        default='cfg/yolov3-spp.cfg',
+        default='cfg/yolov3-tiny-mask.cfg',
         help='cfg file path')
     parser.add_argument(
         '--data-cfg',
         type=str,
-        default='data/coco.data',
+        default='data/mask.data',
         help='coco.data file path')
     parser.add_argument(
         '--weights',
         type=str,
-        default='weights/yolov3-spp.weights',
+        default='weights/best.pt',
         help='path to weights file')
     parser.add_argument(
         '--images',
